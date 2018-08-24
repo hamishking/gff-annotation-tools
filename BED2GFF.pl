@@ -1,0 +1,49 @@
+#!/usr/bin/perl
+use Getopt::Long;
+use Pod::Usage;
+use strict;
+
+pod2usage("\nAnnotates bed file with HOMER and converts to nine column GFF file. (Requires HOMER annotatePeaks.pl in PATH).\nUsage: -bed <chr,start,stop> -genome <mm9, hg19>\n") if (($#ARGV<0) && (-t STDIN));
+
+&GetOptions ("bed=s"=> \my $bed_file,
+             "genome=s"=> \my $genome,
+	     );
+
+my $filename = $bed_file;
+   $filename =~ s/.bed//;
+my $filepath = `fp $bed_file`;
+   $filepath =~ s/.bed//;
+
+my $homerfile = "$filename\_homer.txt";   
+my $outfile = "$filename.tmp.gff";
+
+my $homercommand = `annotatePeaks.pl $bed_file $genome > $homerfile`;
+
+
+
+open(IN, $homerfile) or die "Could not open $homerfile";
+open(OUT, ">$outfile") or die "Could not open $outfile";
+
+
+while(my $line = <IN>){
+            chomp;
+            if ($line=~ /PeakID/) { next }                                          #skips header
+
+            else{                      
+            my ($peakid, $chr, $start, $stop, $strand, $peakscore, $focusratio, $annotation, $detail_annotation, $distancetoTSS, $nearestpromoterid, $entrezid, $unigeneid, $refseqid, $ensemblid, $gene_name, $gene_alias, $gene_description, $gene_type)=split (/\t+/,$line); #chomps, splits and assigns bed file into three columns
+            my $distancetoTSS_value = ($distancetoTSS);
+		my $length = $stop-$start;
+		my $start = $start-1;
+            print OUT "$chr\tHOMER\tPeak\t$start\t$stop\t.\t$strand\t.\tSize=$length;Distance_Nearest_TSS=$distancetoTSS_value;Nearest_Promoter_ID=$nearestpromoterid\n";
+            }
+}
+
+close IN;
+close OUT;
+
+my $command1 = `rm $filename\_homer.txt`;
+
+`sortBed -i $outfile > $filename.gff`;
+`rm $outfile`;
+exit
+
